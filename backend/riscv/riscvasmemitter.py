@@ -100,6 +100,10 @@ class RiscvAsmEmitter(AsmEmitter):
             else:
                 self.seq.append(Riscv.Binary(instr.op, instr.dst, instr.lhs, instr.rhs))
 
+        def visitAssign(self, instr: Assign) -> None:
+            if instr.src is not None:
+                self.seq.append(Riscv.Move(instr.dst, instr.src))
+
         def visitCondBranch(self, instr: CondBranch) -> None:
             self.seq.append(Riscv.Branch(instr.cond, instr.label))
         
@@ -132,6 +136,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
 
     def emitComment(self, comment: str) -> None:
         # you can add some log here to help you debug
+        # print("riscv comment: ", comment)
         pass
     
     # store some temp to stack
