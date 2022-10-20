@@ -104,11 +104,15 @@ class Namer(Visitor[ScopeStack, None]):
             decl.setattr('symbol', symbol)
             if decl.init_expr is not None:
                 decl.init_expr.accept(self, ctx)
+        else:
+            raise DecafDeclConflictError(decl.ident.value)
 
     def visitAssignment(self, expr: Assignment, ctx: ScopeStack) -> None:
         """
         1. Refer to the implementation of visitBinary.
         """
+        if not isinstance(expr.lhs, Identifier):
+            raise DecafNotLvalueError()
         self.visitBinary(expr, ctx)
 
     def visitUnary(self, expr: Unary, ctx: ScopeStack) -> None:
