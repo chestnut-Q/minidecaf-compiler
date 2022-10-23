@@ -412,13 +412,6 @@ class Parser:
             self.lexer = lexer
         self.lexer.input(input)
         self.next_token = next(self.lexer)
-        # while True:
-        #     try:
-        #         print("token: ", self.next_token)
-        #         self.next_token = next(self.lexer)
-                
-        #     except StopIteration:
-        #         break
         # try:
         return p_program(self)
         # except DecafSyntaxError as e:
