@@ -333,22 +333,10 @@ def p_if(self: Parser) -> If:
     self.lookahead("LParen")
     cond = p_expression(self)
     self.lookahead("RParen")
-    if self.next == "LBrace":
-        self.lookahead("LBrace")
-        then = p_block(self)
-        self.lookahead("RBrace")
-    else:
-        then = p_statement(self)
-    node = If(cond=cond, then=then)
+    node = If(cond=cond, then=p_statement(self))
     if self.next == "Else":
         self.lookahead("Else")
-        if self.next == "LBrace":
-            self.lookahead("LBrace")
-            otherwise = p_block(self)
-            self.lookahead("RBrace")
-        else:
-            otherwise = p_statement(self)
-        node.otherwise = otherwise
+        node.otherwise = p_statement(self)
     return node
 
 
