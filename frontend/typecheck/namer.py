@@ -43,8 +43,10 @@ class Namer(Visitor[ScopeStack, None]):
         func.body.accept(self, ctx)
 
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
+        ctx.open(Scope(ScopeKind.LOCAL))
         for child in block:
             child.accept(self, ctx)
+        ctx.close()
 
     def visitReturn(self, stmt: Return, ctx: ScopeStack) -> None:
         stmt.expr.accept(self, ctx)

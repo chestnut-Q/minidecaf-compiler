@@ -15,13 +15,19 @@ class CFG:
         self.edges = edges
 
         self.links = []
+        self.accessible = []
 
         for i in range(len(nodes)):
             self.links.append((set(), set()))
+            self.accessible.append(False)
+
+        self.accessible[0] = True
 
         for (u, v) in edges:
             self.links[u][1].add(v)
             self.links[v][0].add(u)
+            if self.accessible[u]:
+                self.accessible[v] = True
 
     def getBlock(self, id):
         return self.nodes[id]
@@ -40,3 +46,6 @@ class CFG:
 
     def iterator(self):
         return iter(self.nodes)
+
+    def isAccessible(self, id):
+        return self.accessible[id]
