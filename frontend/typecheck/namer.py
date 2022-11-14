@@ -51,15 +51,22 @@ class Namer(Visitor[ScopeStack, None]):
     def visitReturn(self, stmt: Return, ctx: ScopeStack) -> None:
         stmt.expr.accept(self, ctx)
 
+    def visitFor(self, stmt: For, ctx: ScopeStack) -> None:
         """
-        def visitFor(self, stmt: For, ctx: ScopeStack) -> None:
-
         1. Open a local scope for stmt.init.
         2. Visit stmt.init, stmt.cond, stmt.update.
         3. Open a loop in ctx (for validity checking of break/continue)
         4. Visit body of the loop.
         5. Close the loop and the local scope.
         """
+        ctx.open(Scope(ScopeKind.LOCAL))
+        stmt.init.accept(self, ctx)
+        stmt.ctrl.accept(self, ctx)
+        stmt.post.accept(self, ctx)
+        ctx.openLoop()
+        stmt.body.accept(self, ctx)
+        ctx.closeLoop()
+        ctx.close()
 
     def visitIf(self, stmt: If, ctx: ScopeStack) -> None:
         stmt.cond.accept(self, ctx)
@@ -75,23 +82,29 @@ class Namer(Visitor[ScopeStack, None]):
         stmt.body.accept(self, ctx)
         ctx.closeLoop()
 
+        
+    def visitDoWhile(self, stmt: DoWhile, ctx: ScopeStack) -> None:
         """
-        def visitDoWhile(self, stmt: DoWhile, ctx: ScopeStack) -> None:
-
         1. Open a loop in ctx (for validity checking of break/continue)
         2. Visit body of the loop.
         3. Close the loop.
         4. Visit the condition of the loop.
         """
+        ctx.openLoop()
+        stmt.body.accept(self, ctx)
+        ctx.closeLoop()
+        stmt.cond.accept(self, ctx)
 
     def visitBreak(self, stmt: Break, ctx: ScopeStack) -> None:
         if not ctx.inLoop():
             raise DecafBreakOutsideLoopError()
 
-        # def visitContinue(self, stmt: Continue, ctx: ScopeStack) -> None:
+    def visitContinue(self, stmt: Continue, ctx: ScopeStack) -> None:
         """
         1. Refer to the implementation of visitBreak.
         """
+        if not ctx.inLoop():
+            raise DecafContinueOutsideLoopError()
 
     def visitDeclaration(self, decl: Declaration, ctx: ScopeStack) -> None:
         """
