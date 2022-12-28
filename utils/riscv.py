@@ -52,7 +52,7 @@ class Riscv:
 
     CalleeSaved = [S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11]
 
-    AllocatableRegs = CallerSaved + CalleeSaved
+    AllocatableRegs = CalleeSaved + CallerSaved
 
     ArgRegs = [A0, A1, A2, A3, A4, A5, A6, A7]
 
@@ -137,6 +137,24 @@ class Riscv:
         def __str__(self) -> str:
             return "j " + str(self.target)
 
+    class Call(TACInstr):
+        def __init__(self, dst: Temp, params: list[Temp], target: FuncLabel) -> None:
+            super().__init__(InstrKind.SEQ, [dst], params, target)
+            self.target = target
+        
+        def __str__(self) -> str:
+            return "call " + self.target.name
+
+    class GetRet(TACInstr):
+        def __init__(self, dst: Temp) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [], None)
+            self.dst = dst
+        
+        def __str__(self) -> str:
+            return "mv " + Riscv.FMT2.format(
+                str(self.dsts[0]), str(Riscv.A0)
+            )
+
     class SPAdd(NativeInstr):
         def __init__(self, offset: int) -> None:
             super().__init__(InstrKind.SEQ, [Riscv.SP], [Riscv.SP], None)
@@ -170,9 +188,29 @@ class Riscv:
                 str(self.dsts[0]), str(self.offset), str(self.srcs[0])
             )
 
+    class NativeFPLoadWord(NativeInstr):
+        def __init__(self, dst: Reg, base: Reg, offset: int) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [base], None)
+            self.offset = offset
+
+        def __str__(self) -> str:
+            assert -2048 <= self.offset <= 2047  # Riscv imm [11:0]
+            return "lw " + Riscv.FMT_OFFSET.format(
+                str(self.dsts[0]), str(self.offset), str(self.srcs[0])
+            )
+
     class NativeReturn(NativeInstr):
         def __init__(self) -> None:
             super().__init__(InstrKind.RET, [Riscv.RA], [], None)
 
         def __str__(self) -> str:
             return "ret"
+
+    class NativeMove(NativeInstr):
+        def __init__(self, src: Reg, dst: Reg) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [src], None)
+
+        def __str__(self) -> str:
+            return "mv " + Riscv.FMT2.format(
+                str(self.dsts[0]), str(self.srcs[0])
+            )

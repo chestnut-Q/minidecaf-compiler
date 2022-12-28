@@ -80,29 +80,71 @@ class BruteRegAlloc(RegAlloc):
         srcRegs: list[Reg] = []
         dstRegs: list[Reg] = []
 
+        paramRegs = []
+        if isinstance(instr, Riscv.Call):
+            paramRegs = [Riscv.A0, Riscv.A1, Riscv.A2, Riscv.A3, Riscv.A4, Riscv.A5, Riscv.A6, Riscv.A7]
         for i in range(len(instr.srcs)):
             temp = instr.srcs[i]
             if isinstance(temp, Reg):
                 srcRegs.append(temp)
             else:
-                srcRegs.append(self.allocRegFor(temp, True, loc.liveIn, subEmitter))
+                srcRegs.append(self.allocRegFor(temp, True, loc.liveIn, subEmitter, paramRegs))
+
+        usedRegs = []
+        if isinstance(instr, Riscv.Call):
+            for reg in self.emitter.callerSaveRegs:
+                if reg.isUsed():
+                    usedRegs.append(reg)
 
         for i in range(len(instr.dsts)):
             temp = instr.dsts[i]
             if isinstance(temp, Reg):
                 dstRegs.append(temp)
             else:
-                dstRegs.append(self.allocRegFor(temp, False, loc.liveIn, subEmitter))
+                dstRegs.append(self.allocRegFor(temp, False, loc.liveIn, subEmitter, usedRegs))
 
-        subEmitter.emitNative(instr.toNative(dstRegs, srcRegs))
+        if isinstance(instr, Riscv.Call):
+            subEmitter.emitNative(Riscv.SPAdd(-4 * (len(usedRegs) + (max(len(srcRegs) - 8, 0)))))
+            offset = 0
+            if len(srcRegs) > 8:
+                for i in range(8, len(srcRegs)):
+                    subEmitter.emitNative(
+                        Riscv.NativeStoreWord(srcRegs[i], Riscv.SP, offset)
+                    )
+                    offset += 4
+            param_offset = offset
+            for reg in usedRegs:
+                subEmitter.emitNative(
+                    Riscv.NativeStoreWord(reg, Riscv.SP, offset)
+                )
+                offset += 4
+            for i in range(min(len(srcRegs), 8)):
+                subEmitter.emitNative(Riscv.NativeMove(srcRegs[i], eval(f"Riscv.A{i}")))
+            subEmitter.emitNative(instr.toNative(dstRegs, srcRegs))
+            subEmitter.emitNative(Riscv.NativeMove(Riscv.A0, dstRegs[0]))
+            for reg in usedRegs:
+                subEmitter.emitNative(
+                    Riscv.NativeLoadWord(reg, Riscv.SP, param_offset)
+                )
+                param_offset += 4
+            subEmitter.emitNative(
+                Riscv.SPAdd(4 * (len(usedRegs) + (max(len(srcRegs) - 8, 0))))
+            )
+        else:
+            subEmitter.emitNative(instr.toNative(dstRegs, srcRegs))
+    
 
     def allocRegFor(
-        self, temp: Temp, isRead: bool, live: set[int], subEmitter: SubroutineEmitter
+        self, temp: Temp, isRead: bool, live: set[int], subEmitter: SubroutineEmitter, usedRegs: list[Reg] = []
     ):
         if temp.index in self.bindings:
             return self.bindings[temp.index]
 
+        allocatableRegs = []
         for reg in self.emitter.allocatableRegs:
+            if reg not in usedRegs:
+                allocatableRegs.append(reg)
+        for reg in allocatableRegs:
             if (not reg.occupied) or (not reg.temp.index in live):
                 subEmitter.emitComment(
                     "  allocate {} to {}  (read: {}):".format(
@@ -116,9 +158,7 @@ class BruteRegAlloc(RegAlloc):
                 self.bind(temp, reg)
                 return reg
 
-        reg = self.emitter.allocatableRegs[
-            random.randint(0, len(self.emitter.allocatableRegs))
-        ]
+        reg = allocatableRegs[random.randint(0, len(allocatableRegs) - 1)]
         subEmitter.emitStoreToStack(reg)
         subEmitter.emitComment("  spill {} ({})".format(str(reg), str(reg.temp)))
         self.unbind(reg.temp)

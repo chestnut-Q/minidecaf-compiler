@@ -3,6 +3,7 @@ from __future__ import annotations
 from frontend.scope.scope import Scope
 
 from .symbol import *
+from utils.tac.temp import Temp
 
 """
 Function symbol, representing a function definition.
@@ -10,10 +11,12 @@ Function symbol, representing a function definition.
 
 
 class FuncSymbol(Symbol):
-    def __init__(self, name: str, type: DecafType, scope: Scope) -> None:
+    def __init__(self, name: str, defined: bool, type: DecafType, scope: Scope) -> None:
         super().__init__(name, type)
+        self.defined = defined
         self.scope = scope
         self.para_type = []
+        self.para_temp = []
 
     def __str__(self) -> str:
         return "function %s : %s" % (self.name, str(self.type))
@@ -26,6 +29,9 @@ class FuncSymbol(Symbol):
     def addParaType(self, type: DecafType) -> None:
         self.para_type.append(type)
 
+    def addParaTemp(self, temp: Temp) -> None:
+        self.para_temp.append(temp)
+
     # To get the parameter number of a function symbol.
     @property
     def parameterNum(self) -> int:
@@ -34,3 +40,6 @@ class FuncSymbol(Symbol):
     # To get the parameters' type.
     def getParaType(self, id: int) -> DecafType:
         return self.para_type[id]
+
+    def getParaTemp(self, id: int) -> Temp:
+        return self.para_temp[id]

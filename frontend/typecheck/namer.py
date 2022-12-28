@@ -37,11 +37,50 @@ class Namer(Visitor[ScopeStack, None]):
         if not program.hasMainFunc():
             raise DecafNoMainFuncError
 
-        program.mainFunc().accept(self, ctx)
+        for func in program:
+            func.accept(self, ctx)
+
+    def visitParameter(self, param: Parameter, ctx: ScopeStack) -> None:
+        if ctx.findConflict(param.ident.value) is None:
+            symbol = VarSymbol(param.ident.value, param.ident.type)
+            ctx.declare(symbol)
+            param.setattr('symbol', symbol)
+        else:
+            raise DecafDeclConflictError(param.ident.value)
+
+    def visitCall(self, call: Call, ctx: ScopeStack) -> None:
+        if not ctx.globalscope.containsKey(call.ident.value):
+            raise DecafUndefinedFuncError(call.ident.value)
+        if not ctx.lookup(call.ident.value).isFunc:
+            raise DecafBadFuncCallError(call.ident.value)
+        func_symbol = ctx.globalscope.get(call.ident.value)
+        if len(func_symbol.para_type) != len(call.parameters):
+            raise DecafBadFuncCallError(call.ident.value)
+        call.setattr('symbol', func_symbol)
+        for param in call.parameters:
+            param.accept(self, ctx)
 
     def visitFunction(self, func: Function, ctx: ScopeStack) -> None:
-        func.body.accept(self, ctx)
-
+        func_defined = True if func.body else False
+        if ctx.globalscope.containsKey(func.ident.value):
+            func_symbol: FuncSymbol = ctx.globalscope.get(func.ident.value)
+            if func_symbol.defined and func_defined:
+                raise DecafDeclConflictError(func.ident.value)
+            else:
+                func_symbol.defined = func_symbol.defined or func_defined
+        else:
+            func_symbol = FuncSymbol(func.ident.value, func_defined, func.ret_t, Scope(ScopeKind.GLOBAL))
+            ctx.globalscope.declare(func_symbol)
+        ctx.open(Scope(ScopeKind.LOCAL))
+        for param in func.parameters:
+            param.accept(self, ctx)
+            func_symbol.addParaType(param.var_type)
+        if func.body:
+            for child in func.body:
+                child.accept(self, ctx)
+        func.setattr('symbol', func_symbol)
+        ctx.close()
+        
     def visitBlock(self, block: Block, ctx: ScopeStack) -> None:
         ctx.open(Scope(ScopeKind.LOCAL))
         for child in block:

@@ -3,6 +3,7 @@ from frontend.ast import node
 from frontend.ast.tree import *
 from frontend.ast.visitor import Visitor
 from frontend.symbol.varsymbol import VarSymbol
+from frontend.symbol.funcsymbol import FuncSymbol
 from frontend.type.array import ArrayType
 from utils.tac import tacop
 from utils.tac.funcvisitor import FuncVisitor
@@ -22,7 +23,7 @@ class TACGen(Visitor[FuncVisitor, None]):
     # Entry of this phase
     def transform(self, program: Program) -> TACProg:
         mainFunc = program.mainFunc()
-        pw = ProgramWriter(["main"])
+        pw = ProgramWriter(program.functions())
         # The function visitor of 'main' is special.
         mv = pw.visitMainFunc()
 
@@ -30,8 +31,33 @@ class TACGen(Visitor[FuncVisitor, None]):
         # Remember to call mv.visitEnd after the translation a function.
         mv.visitEnd()
 
+        for name in program.functions().keys():
+            if name == "main":
+                continue
+            func = program.functions()[name]
+            if not func.body:
+                continue
+            mv = pw.visitFunc(name, len(func.parameters))
+            func_symbol: FuncSymbol = func.getattr("symbol")
+            for param in func.parameters:
+                func_symbol.addParaTemp(param.accept(self, mv))
+            func.body.accept(self, mv)
+            mv.visitEnd()
+
         # Remember to call pw.visitEnd before finishing the translation phase.
         return pw.visitEnd()
+
+    def visitParameter(self, param: Parameter, mv: FuncVisitor) -> Temp:
+        symbol: VarSymbol = param.getattr("symbol")
+        symbol.temp = mv.freshTemp()
+        return symbol.temp
+
+    def visitCall(self, call: Call, mv: FuncVisitor) -> None:
+        for param in call.parameters:
+            param.accept(self, mv)
+        for param in call.parameters:
+            mv.visitParam(param.getattr("val"))
+        call.setattr("val", mv.visitCall(mv.ctx.getFuncLabel(call.ident.value)))
 
     def visitBlock(self, block: Block, mv: FuncVisitor) -> None:
         for child in block:

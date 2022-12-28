@@ -57,6 +57,7 @@ class RiscvAsmEmitter(AsmEmitter):
     class RiscvInstrSelector(TACVisitor):
         def __init__(self, entry: Label) -> None:
             self.entry = entry
+            self.passed_params = []
             self.seq = []
 
         # in step11, you need to think about how to deal with globalTemp in almost all the visit functions. 
@@ -111,6 +112,13 @@ class RiscvAsmEmitter(AsmEmitter):
             self.seq.append(Riscv.Jump(instr.target))
 
         # in step9, you need to think about how to pass the parameters and how to store and restore callerSave regs
+        def visitParam(self, instr: Param) -> None:
+            self.passed_params.append(instr.src)
+        
+        def visitCall(self, instr: Call) -> None:
+            self.seq.append(Riscv.Call(instr.dst, self.passed_params, instr.label))
+            self.passed_params.clear()
+
         # in step11, you need to think about how to store the array 
 """
 RiscvAsmEmitter: an SubroutineEmitter for RiscV
@@ -133,6 +141,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         self.printer.printLabel(info.funcLabel)
 
         # in step9, step11 you can compute the offset of local array and parameters here
+        self.param_num = info.funcLabel.param_num
 
     def emitComment(self, comment: str) -> None:
         # you can add some log here to help you debug
@@ -154,12 +163,15 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
     # usually happen when using a temp which is stored to stack before
     # in step9, you need to think about the fuction parameters here
     def emitLoadFromStack(self, dst: Reg, src: Temp):
-        if src.index not in self.offsets:
+        if src.index < self.param_num :
+            if src.index < 8:
+                self.buf.append(Riscv.NativeMove(eval(f"Riscv.A{src.index}"), dst))
+            else:
+                self.buf.append(Riscv.NativeFPLoadWord(dst, Riscv.SP, 4 * (src.index - 8)))
+        elif src.index not in self.offsets:
             raise IllegalArgumentException()
         else:
-            self.buf.append(
-                Riscv.NativeLoadWord(dst, Riscv.SP, self.offsets[src.index])
-            )
+            self.buf.append(Riscv.NativeLoadWord(dst, Riscv.SP, self.offsets[src.index]))
 
     # add a NativeInstr to buf
     # when calling the fuction emitEnd, all the instr in buf will be transformed to RiscV code
@@ -181,7 +193,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
                 self.printer.printInstr(
                     Riscv.NativeStoreWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
                 )
-
+        self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
         self.printer.printComment("end of prologue")
         self.printer.println("")
 
@@ -192,6 +204,8 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
 
         # using asmcodeprinter to output the RiscV code
         for instr in self.buf:
+            if isinstance(instr, Riscv.NativeFPLoadWord):
+                instr.offset += self.nextLocalOffset
             self.printer.printInstr(instr)
 
         self.printer.printComment("end of body")
@@ -207,7 +221,7 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
                 self.printer.printInstr(
                     Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
                 )
-
+        self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
         self.printer.printInstr(Riscv.SPAdd(self.nextLocalOffset))
         self.printer.printComment("end of epilogue")
         self.printer.println("")

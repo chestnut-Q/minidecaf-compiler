@@ -80,6 +80,14 @@ class FuncVisitor:
     def visitMemo(self, content: str) -> None:
         self.func.add(Memo(content))
 
+    def visitParam(self, param: Temp) -> None:
+        self.func.add(Param(param))
+
+    def visitCall(self, func_label: FuncLabel) -> Temp:
+        temp = self.freshTemp()
+        self.func.add(Call(temp, func_label))
+        return temp
+
     def visitRaw(self, instr: TACInstr) -> None:
         self.func.add(instr)
 

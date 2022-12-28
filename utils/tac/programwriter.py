@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional, Union
+from frontend.ast.tree import Function
 
 from utils.label.funclabel import *
 from utils.label.label import Label, LabelKind
@@ -11,12 +12,12 @@ from .tacprog import TACProg
 
 
 class ProgramWriter:
-    def __init__(self, funcs: list[str]) -> None:
+    def __init__(self, funcs: dict[str, Function]) -> None:
         self.funcs = []
         self.ctx = Context()
-        for func in funcs:
-            self.funcs.append(func)
-            self.ctx.putFuncLabel(func)
+        for func in funcs.values():
+            self.funcs.append(func.ident.value)
+            self.ctx.putFuncLabel(func.ident.value, len(func.parameters))
 
     def visitMainFunc(self) -> FuncVisitor:
         entry = MAIN_LABEL
