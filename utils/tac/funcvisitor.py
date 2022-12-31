@@ -49,6 +49,19 @@ class FuncVisitor:
             self.func.add(LoadStrConst(temp, value))
         return temp
 
+    def visitLoadSymbol(self, symbol: str) -> Temp:
+        temp = self.freshTemp()
+        self.func.add(LoadSymbol(temp, symbol))
+        return temp
+
+    def visitLoadWord(self, base: Temp, offset: int) -> Temp:
+        temp = self.freshTemp()
+        self.func.add(Load(temp, base, offset))
+        return temp
+
+    def visitStoreWord(self, src: Temp, base: Temp, offset: int) -> None:
+        self.func.add(Store(src, base, offset))
+
     def visitUnary(self, op: UnaryOp, operand: Temp) -> Temp:
         temp = self.freshTemp()
         self.func.add(Unary(op, temp, operand))

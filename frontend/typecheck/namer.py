@@ -37,8 +37,25 @@ class Namer(Visitor[ScopeStack, None]):
         if not program.hasMainFunc():
             raise DecafNoMainFuncError
 
-        for func in program:
-            func.accept(self, ctx)
+        for child in program:
+            if isinstance(child, Declaration):
+                child: Declaration
+                if ctx.findConflict(child.ident.value):
+                    raise DecafGlobalVarDefinedTwiceError(child.ident.value)
+                else:
+                    global_symbol = VarSymbol(child.ident.value, child.var_t, True)
+                    if child.init_expr:
+                        if not isinstance(child.init_expr, IntLiteral):
+                            raise DecafGlobalVarBadInitValueError(child.ident.value)
+                        global_symbol.setInitValue(child.init_expr.value)
+                    else:
+                        global_symbol.setInitValue(0)
+                    ctx.globalscope.declare(global_symbol)
+                    child.ident.setattr("symbol", global_symbol)
+            elif isinstance(child, Function):
+                child.accept(self, ctx)
+            else:
+                raise DecafSyntaxError()
 
     def visitParameter(self, param: Parameter, ctx: ScopeStack) -> None:
         if ctx.findConflict(param.ident.value) is None:

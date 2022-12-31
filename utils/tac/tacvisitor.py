@@ -7,10 +7,22 @@ class TACVisitor:
    def visitOther(self, instr: TACInstr) -> None:
         pass
 
+   def visitGlobal(self, instr: Global) -> None:
+        self.visitOther(instr)
+
    def visitAssign(self, instr: Assign) -> None:
         self.visitOther(instr)
 
    def visitLoadImm4(self, instr: LoadImm4) -> None:
+        self.visitOther(instr)
+
+   def visitLoadSymbol(self, instr: LoadSymbol) -> None:
+        self.visitOther(instr)
+
+   def visitLoad(self, instr: Load) -> None:
+        self.visitOther(instr)
+
+   def visitStore(self, instr: Store) -> None:
         self.visitOther(instr)
 
    def visitUnary(self, instr: Unary) -> None:

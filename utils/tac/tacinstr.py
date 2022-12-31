@@ -54,6 +54,25 @@ class TACInstr:
         pass
 
 
+class Global(TACInstr):
+    def __init__(self, name: str, init_value: int) -> None:
+        super().__init__(InstrKind.SEQ, [], [], None)
+        self.name = name
+        self.init_value = init_value
+        self.initialized = False if self.init_value == 0 else True
+    
+    def __str__(self) -> str:
+        if self.initialized:
+            return "GLOBAL %s %d" % (self.name, self.init_value)
+        else:
+            return "GLOBAL %s" % self.name
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitGlobal(self)
+
+    def printTo(self) -> None:
+        print("    " + self.__str__())
+
 # Assignment instruction.
 class Assign(TACInstr):
     def __init__(self, dst: Temp, src: Temp) -> None:
@@ -81,6 +100,48 @@ class LoadImm4(TACInstr):
     def accept(self, v: TACVisitor) -> None:
         v.visitLoadImm4(self)
 
+
+# Loading an address of a global variable.
+class LoadSymbol(TACInstr):
+    def __init__(self, dst: Temp, symbol: str) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [], None)
+        self.dst = dst
+        self.symbol = symbol
+
+    def __str__(self) -> str:
+        return "%s = LOAD_SYMBOL %s" % (self.dst, self.symbol)
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitLoadSymbol(self)
+
+
+# Loading a global variable.
+class Load(TACInstr):
+    def __init__(self, dst: Temp, base: Temp, offset: int) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [base], None)
+        self.dst = dst
+        self.base = base
+        self.offset = offset
+
+    def __str__(self) -> str:
+        return "%s = LOAD %s, %d" % (self.dst, self.base, self.offset)
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitLoad(self)
+
+# Storing a global variable.
+class Store(TACInstr):
+    def __init__(self, src: Temp, base: Temp, offset: int) -> None:
+        super().__init__(InstrKind.SEQ, [], [src, base], None)
+        self.src = src
+        self.base = base
+        self.offset = offset
+
+    def __str__(self) -> str:
+        return "STORE %s, %d(%s)" % (self.src, self.offset, self.base)
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitStore(self)
 
 # Unary operations.
 class Unary(TACInstr):

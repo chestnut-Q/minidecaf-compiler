@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from utils.asmcodeprinter import AsmCodePrinter
 from utils.tac.reg import Reg
 from utils.tac.tacfunc import TACFunc
+from utils.tac.tacinstr import Global
 
 from .subroutineinfo import SubroutineInfo
 
@@ -19,9 +20,10 @@ allocatableRegs: all the regs that can used in reg alloc
 
 
 class AsmEmitter(ABC):
-    def __init__(self, allocatableRegs: list[Reg], callerSaveRegs: list[Reg]) -> None:
+    def __init__(self, allocatableRegs: list[Reg], callerSaveRegs: list[Reg], globalVars: list[Global]) -> None:
         self.allocatableRegs = allocatableRegs
         self.callerSaveRegs = callerSaveRegs
+        self.globalVars = globalVars
         self.printer = AsmCodePrinter()
 
     @abstractmethod

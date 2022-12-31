@@ -45,12 +45,12 @@ class ListNode(Node, Generic[_T]):
         return None if ret.count(None) == len(ret) else ret
 
 
-class Program(ListNode["Function"]):
+class Program(ListNode[Union["Function", "Declaration"]]):
     """
     AST root. It should have only one children before step9.
     """
 
-    def __init__(self, children: list[Function]) -> None:
+    def __init__(self, children: list[Union[Function, Declaration]]) -> None:
         super().__init__("program", children)
 
     def functions(self) -> dict[str, Function]:

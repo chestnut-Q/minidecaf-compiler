@@ -46,6 +46,13 @@ def p_program(p):
     p[0] = Program(p[1])
 
 
+def p_global_variable(p):
+    """
+    function_list : declaration Semi function_list
+    """
+    p[0] = [p[1]] + p[3]
+
+
 def p_function_list(p):
     '''
     function_list : function function_list

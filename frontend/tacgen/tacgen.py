@@ -10,6 +10,7 @@ from utils.tac.funcvisitor import FuncVisitor
 from utils.tac.programwriter import ProgramWriter
 from utils.tac.tacprog import TACProg
 from utils.tac.temp import Temp
+from utils.tac.tacinstr import Global
 
 """
 The TAC generation phase: translate the abstract syntax tree into three-address code.
@@ -24,6 +25,14 @@ class TACGen(Visitor[FuncVisitor, None]):
     def transform(self, program: Program) -> TACProg:
         mainFunc = program.mainFunc()
         pw = ProgramWriter(program.functions())
+
+        for child in program:
+            if isinstance(child, Declaration):
+                if child.init_expr:   
+                    pw.global_vars.append(Global(child.ident.value, child.init_expr.value))
+                else:
+                    pw.global_vars.append(Global(child.ident.value, 0))
+
         # The function visitor of 'main' is special.
         mv = pw.visitMainFunc()
 
@@ -77,7 +86,10 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         1. Set the 'val' attribute of ident as the temp variable of the 'symbol' attribute of ident.
         """
-        ident.setattr("val", ident.getattr("symbol").temp)
+        symbol: VarSymbol = ident.getattr("symbol")
+        if symbol.isGlobal:
+            symbol.temp = mv.visitLoadWord(mv.visitLoadSymbol(symbol.name), 0)
+        ident.setattr("val", symbol.temp)
 
     def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> None:
         """
@@ -101,6 +113,10 @@ class TACGen(Visitor[FuncVisitor, None]):
         expr.lhs.accept(self, mv)
         temp = expr.lhs.getattr("val")
         expr.setattr("val", mv.visitAssignment(temp, expr.rhs.getattr("val")))
+        if isinstance(expr.lhs, Identifier):
+            symbol: VarSymbol = expr.lhs.getattr("symbol")
+            if symbol.isGlobal:
+                mv.visitStoreWord(temp, mv.visitLoadSymbol(symbol.name), 0)
 
     def visitIf(self, stmt: If, mv: FuncVisitor) -> None:
         stmt.cond.accept(self, mv)
