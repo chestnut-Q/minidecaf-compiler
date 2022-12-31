@@ -124,7 +124,7 @@ class Load(TACInstr):
         self.offset = offset
 
     def __str__(self) -> str:
-        return "%s = LOAD %s, %d" % (self.dst, self.base, self.offset)
+        return "LOAD %s, %d(%s)" % (self.dst, self.offset, self.base)
 
     def accept(self, v: TACVisitor) -> None:
         v.visitLoad(self)

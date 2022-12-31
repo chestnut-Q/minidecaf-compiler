@@ -13,6 +13,7 @@ class VarSymbol(Symbol):
         self.temp: Temp
         self.isGlobal = isGlobal
         self.initValue = 0
+        self.defined = not isGlobal
 
     def __str__(self) -> str:
         return "variable %s : %s" % (self.name, str(self.type))
@@ -20,3 +21,4 @@ class VarSymbol(Symbol):
     # To set the initial value of a variable symbol (used for global variable).
     def setInitValue(self, value: int) -> None:
         self.initValue = value
+        self.defined = True

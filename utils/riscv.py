@@ -175,16 +175,6 @@ class Riscv:
         def __str__(self) -> str:
             return "call " + self.target.name
 
-    class GetRet(TACInstr):
-        def __init__(self, dst: Temp) -> None:
-            super().__init__(InstrKind.SEQ, [dst], [], None)
-            self.dst = dst
-        
-        def __str__(self) -> str:
-            return "mv " + Riscv.FMT2.format(
-                str(self.dsts[0]), str(Riscv.A0)
-            )
-
     class SPAdd(NativeInstr):
         def __init__(self, offset: int) -> None:
             super().__init__(InstrKind.SEQ, [Riscv.SP], [Riscv.SP], None)

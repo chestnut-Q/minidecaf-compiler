@@ -38,24 +38,7 @@ class Namer(Visitor[ScopeStack, None]):
             raise DecafNoMainFuncError
 
         for child in program:
-            if isinstance(child, Declaration):
-                child: Declaration
-                if ctx.findConflict(child.ident.value):
-                    raise DecafGlobalVarDefinedTwiceError(child.ident.value)
-                else:
-                    global_symbol = VarSymbol(child.ident.value, child.var_t, True)
-                    if child.init_expr:
-                        if not isinstance(child.init_expr, IntLiteral):
-                            raise DecafGlobalVarBadInitValueError(child.ident.value)
-                        global_symbol.setInitValue(child.init_expr.value)
-                    else:
-                        global_symbol.setInitValue(0)
-                    ctx.globalscope.declare(global_symbol)
-                    child.setattr("symbol", global_symbol)
-            elif isinstance(child, Function):
-                child.accept(self, ctx)
-            else:
-                raise DecafSyntaxError()
+            child.accept(self, ctx)
 
     def visitParameter(self, param: Parameter, ctx: ScopeStack) -> None:
         if ctx.findConflict(param.ident.value) is None:
@@ -169,14 +152,31 @@ class Namer(Visitor[ScopeStack, None]):
         3. Set the 'symbol' attribute of decl.
         4. If there is an initial value, visit it.
         """
-        if ctx.findConflict(decl.ident.value) is None:
-            symbol = VarSymbol(decl.ident.value, decl.ident.type)
-            ctx.declare(symbol)
-            decl.setattr('symbol', symbol)
-            if decl.init_expr is not None:
-                decl.init_expr.accept(self, ctx)
+        if ctx.isGlobalScope():
+            var_defined = True if decl.init_expr else False
+            if ctx.globalscope.containsKey(decl.ident.value):
+                global_symbol: VarSymbol = ctx.globalscope.get(decl.ident.value)
+                if global_symbol.defined and var_defined:
+                    raise DecafGlobalVarDefinedTwiceError(decl.ident.value)
+            else:
+                global_symbol = VarSymbol(decl.ident.value, decl.var_t, True)
+            if decl.init_expr:
+                if not isinstance(decl.init_expr, IntLiteral):
+                    raise DecafGlobalVarBadInitValueError(decl.ident.value)
+                global_symbol.setInitValue(decl.init_expr.value)
+            else:
+                global_symbol.setInitValue(0)
+            ctx.globalscope.declare(global_symbol)
+            decl.setattr("symbol", global_symbol)
         else:
-            raise DecafDeclConflictError(decl.ident.value)
+            if ctx.findConflict(decl.ident.value) is None:
+                symbol = VarSymbol(decl.ident.value, decl.ident.type)
+                ctx.declare(symbol)
+                decl.setattr('symbol', symbol)
+                if decl.init_expr is not None:
+                    decl.init_expr.accept(self, ctx)
+            else:
+                raise DecafDeclConflictError(decl.ident.value)
 
     def visitAssignment(self, expr: Assignment, ctx: ScopeStack) -> None:
         """
