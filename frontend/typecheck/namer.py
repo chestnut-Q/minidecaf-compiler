@@ -51,7 +51,7 @@ class Namer(Visitor[ScopeStack, None]):
                     else:
                         global_symbol.setInitValue(0)
                     ctx.globalscope.declare(global_symbol)
-                    child.ident.setattr("symbol", global_symbol)
+                    child.setattr("symbol", global_symbol)
             elif isinstance(child, Function):
                 child.accept(self, ctx)
             else:

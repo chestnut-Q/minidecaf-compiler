@@ -28,10 +28,7 @@ class TACGen(Visitor[FuncVisitor, None]):
 
         for child in program:
             if isinstance(child, Declaration):
-                if child.init_expr:   
-                    pw.global_vars.append(Global(child.ident.value, child.init_expr.value))
-                else:
-                    pw.global_vars.append(Global(child.ident.value, 0))
+                pw.global_vars.append(Global(child.ident.value, child.getattr("symbol").initValue))
 
         # The function visitor of 'main' is special.
         mv = pw.visitMainFunc()
