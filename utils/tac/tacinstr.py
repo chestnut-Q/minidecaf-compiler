@@ -55,17 +55,32 @@ class TACInstr:
 
 
 class Global(TACInstr):
-    def __init__(self, name: str, init_value: int) -> None:
+    def __init__(self, name: str, init_value: Union[int, list[int]], array_size: Optional[int] = None) -> None:
         super().__init__(InstrKind.SEQ, [], [], None)
         self.name = name
         self.init_value = init_value
-        self.initialized = False if self.init_value == 0 else True
-    
+        self.array_size = array_size or None
+        self.is_array = array_size is not None
+        self.initialized = self.init_value is not None
+        if not self.is_array and self.init_value == 0:
+            self.initialized = False
+        assert (
+                self.is_array and not isinstance(self.init_value, int)
+            ) or (
+                not self.is_array and (self.init_value is None or isinstance(self.init_value, int))
+            )
+
     def __str__(self) -> str:
-        if self.initialized:
-            return "GLOBAL %s %d" % (self.name, self.init_value)
+        if self.is_array:
+            if self.initialized:
+                return "GLOBAL %s[%d] %s" % (self.name, self.array_size / 4, " ".join([str(x) for x in self.init_value]))
+            else:
+                return "GLOBAL %s[%d]" % (self.name, self.array_size / 4)
         else:
-            return "GLOBAL %s" % self.name
+            if self.initialized:
+                return "GLOBAL %s %d" % (self.name, self.init_value)
+            else:
+                return "GLOBAL %s" % self.name
 
     def accept(self, v: TACVisitor) -> None:
         v.visitGlobal(self)
@@ -86,6 +101,19 @@ class Assign(TACInstr):
     def accept(self, v: TACVisitor) -> None:
         v.visitAssign(self)
 
+
+# Alloc for array.
+class Alloc(TACInstr):
+    def __init__(self, dst: Temp, size: int) -> None:
+        super().__init__(InstrKind.SEQ, [dst], [], None)
+        self.dst = dst
+        self.size = size
+
+    def __str__(self) -> str:
+        return "%s = ALLOC %d" % (self.dst, self.size)
+
+    def accept(self, v: TACVisitor) -> None:
+        v.visitAlloc(self)
 
 # Loading an immediate 32-bit constant.
 class LoadImm4(TACInstr):

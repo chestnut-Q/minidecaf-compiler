@@ -175,6 +175,14 @@ class Riscv:
         def __str__(self) -> str:
             return "call " + self.target.name
 
+    class GetArrayAddr(TACInstr):
+        def __init__(self, dst: Temp, offset: int) -> None:
+            super().__init__(InstrKind.SEQ, [dst], [], None)
+            self.offset = offset
+        
+        def __str__(self) -> str:
+            return "addi " + Riscv.FMT3.format(str(self.dsts[0]), str(Riscv.SP), str(self.offset))
+
     class SPAdd(NativeInstr):
         def __init__(self, offset: int) -> None:
             super().__init__(InstrKind.SEQ, [Riscv.SP], [Riscv.SP], None)

@@ -30,16 +30,33 @@ class RiscvAsmEmitter(AsmEmitter):
         # the start of the asm code
         # int step10, you need to add the declaration of global var here
         for var in self.globalVars:
-            if var.initialized:
-                self.printer.println(".data")
-                self.printer.println(".global %s" % var.name)
-                self.printer.printLabel(Label(LabelKind.GLOBAL, var.name))
-                self.printer.println(".word %d" % var.init_value)
+            if var.is_array:
+                if var.initialized:
+                    self.printer.println(".data")
+                    self.printer.println(".global %s" % var.name)
+                    self.printer.printLabel(Label(LabelKind.GLOBAL, var.name))
+                    init_offset = 0
+                    for i in range(len(var.init_value)):
+                        self.printer.println(".word %d" % var.init_value[i])
+                        init_offset += 4
+                    if var.array_size - init_offset > 0:
+                        self.printer.println(".zero %d" % (var.array_size - init_offset))
+                else:
+                    self.printer.println(".bss")
+                    self.printer.println(".global %s" % var.name)
+                    self.printer.printLabel(Label(LabelKind.GLOBAL, var.name))
+                    self.printer.println(".space %d" % var.array_size)
             else:
-                self.printer.println(".bss")
-                self.printer.println(".global %s" % var.name)
-                self.printer.printLabel(Label(LabelKind.GLOBAL, var.name))
-                self.printer.println(".space 4")
+                if var.initialized:
+                    self.printer.println(".data")
+                    self.printer.println(".global %s" % var.name)
+                    self.printer.printLabel(Label(LabelKind.GLOBAL, var.name))
+                    self.printer.println(".word %d" % var.init_value)
+                else:
+                    self.printer.println(".bss")
+                    self.printer.println(".global %s" % var.name)
+                    self.printer.printLabel(Label(LabelKind.GLOBAL, var.name))
+                    self.printer.println(".space 4")
 
         self.printer.println(".text")
         self.printer.println(".global main")
@@ -55,7 +72,7 @@ class RiscvAsmEmitter(AsmEmitter):
         for instr in func.getInstrSeq():
             instr.accept(selector)
 
-        info = SubroutineInfo(func.entry)
+        info = SubroutineInfo(func.entry, selector.array_offset)
 
         return (selector.seq, info)
 
@@ -72,6 +89,7 @@ class RiscvAsmEmitter(AsmEmitter):
             self.entry = entry
             self.passed_params = []
             self.seq = []
+            self.array_offset = 0
 
         # in step11, you need to think about how to deal with globalTemp in almost all the visit functions. 
         def visitReturn(self, instr: Return) -> None:
@@ -83,6 +101,10 @@ class RiscvAsmEmitter(AsmEmitter):
 
         def visitMark(self, instr: Mark) -> None:
             self.seq.append(Riscv.RiscvLabel(instr.label))
+
+        def visitAlloc(self, instr: Alloc) -> None:
+            self.seq.append(Riscv.GetArrayAddr(instr.dst, self.array_offset))
+            self.array_offset += instr.size
 
         def visitLoadImm4(self, instr: LoadImm4) -> None:
             self.seq.append(Riscv.LoadImm(instr.dst, instr.value))
@@ -150,8 +172,9 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
     def __init__(self, emitter: RiscvAsmEmitter, info: SubroutineInfo) -> None:
         super().__init__(emitter, info)
         
+        self.array_offset = info.array_offset
         # + 4 is for the RA reg 
-        self.nextLocalOffset = 4 * len(Riscv.CalleeSaved) + 4
+        self.nextLocalOffset = 4 * len(Riscv.CalleeSaved) + 4 + self.array_offset
         
         # the buf which stored all the NativeInstrs in this function
         self.buf: list[NativeInstr] = []
@@ -213,9 +236,9 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         for i in range(len(Riscv.CalleeSaved)):
             if Riscv.CalleeSaved[i].isUsed():
                 self.printer.printInstr(
-                    Riscv.NativeStoreWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
+                    Riscv.NativeStoreWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i + self.array_offset)
                 )
-        self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
+        self.printer.printInstr(Riscv.NativeStoreWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved) + self.array_offset))
         self.printer.printComment("end of prologue")
         self.printer.println("")
 
@@ -241,9 +264,9 @@ class RiscvSubroutineEmitter(SubroutineEmitter):
         for i in range(len(Riscv.CalleeSaved)):
             if Riscv.CalleeSaved[i].isUsed():
                 self.printer.printInstr(
-                    Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i)
+                    Riscv.NativeLoadWord(Riscv.CalleeSaved[i], Riscv.SP, 4 * i + self.array_offset)
                 )
-        self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved)))
+        self.printer.printInstr(Riscv.NativeLoadWord(Riscv.RA, Riscv.SP, 4 * len(Riscv.CalleeSaved) + self.array_offset))
         self.printer.printInstr(Riscv.SPAdd(self.nextLocalOffset))
         self.printer.printComment("end of epilogue")
         self.printer.println("")

@@ -33,9 +33,6 @@ class DecafDeclConflictError(Exception):
     def __init__(self, name: str) -> None:
         super().__init__("Semantic error: declaration conflict '%s'" % name)
 
-class DecafNotLvalueError(Exception):
-    def __init__(self) -> None:
-        super().__init__("Semantic error: in assignment, left expression is not an lvalue")
 
 class DecafBadIntValueError(Exception):
     def __init__(self, val: Union[str, int]) -> None:

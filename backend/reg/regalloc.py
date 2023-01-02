@@ -14,5 +14,5 @@ class RegAlloc(ABC):
         self.emitter = emitter
 
     @abstractmethod
-    def accept(self, graph: CFG, info: SubroutineInfo) -> None:
+    def accept(self, graph: CFG, info: SubroutineInfo, numArgs: int) -> None:
         raise NotImplementedError

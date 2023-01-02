@@ -35,8 +35,10 @@ class BruteRegAlloc(RegAlloc):
         for reg in emitter.allocatableRegs:
             reg.used = False
 
-    def accept(self, graph: CFG, info: SubroutineInfo) -> None:
+    def accept(self, graph: CFG, info: SubroutineInfo, numArgs: int) -> None:
         subEmitter = self.emitter.emitSubroutine(info)
+        for i in range(numArgs):
+            self.bind(Temp(i), eval(f"Riscv.A{i}"))
         for bb in graph.iterator():
             # you need to think more here
             # maybe we don't need to alloc regs for all the basic blocks

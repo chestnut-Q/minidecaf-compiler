@@ -265,9 +265,9 @@ def p_opt_expression_empty(p):
 
 def p_declaration(p):
     """
-    declaration : type Identifier
+    declaration : type Identifier array
     """
-    p[0] = Declaration(p[1], p[2])
+    p[0] = Declaration(p[1], p[2], None, p[3])
 
 
 def p_declaration_init(p):
@@ -275,6 +275,59 @@ def p_declaration_init(p):
     declaration : type Identifier Assign expression
     """
     p[0] = Declaration(p[1], p[2], p[4])
+
+
+def p_declaration_array_init(p):
+    """
+    declaration : type Identifier array LBracket Integer RBracket Assign LBrace array_init_list RBrace
+    """
+    p[0] = Declaration(p[1], p[2], None, p[3] + [p[5]], p[9])
+
+def p_array_empty(p):
+    """
+    array : empty
+    """
+    p[0] = []
+
+def p_array(p):
+    """
+    array : array LBracket Integer RBracket
+    """
+    p[0] = p[1] + [p[3]]
+
+def p_array_init(p):
+    """
+    array_init_list : Integer Comma array_init_list
+    """
+    p[0] = [p[1]] + p[3]
+
+
+def p_array_init_list_single(p):
+    """
+    array_init_list : Integer
+    """
+    p[0] = [p[1]]
+
+
+def p_array_init_list_empty(p):
+    """
+    array_init_list : empty
+    """
+    p[0] = []
+
+
+def p_identifier_array_call(p):
+    """
+    ArrayCall : Identifier
+    """
+    p[0] = ArrayCall(p[1])
+
+
+def p_index_array_call(p):
+    """
+    ArrayCall : ArrayCall LBracket expression RBracket
+    """
+    p[0] = ArrayCall(p[1], p[3])    
 
 
 def p_expression_precedence(p):
@@ -308,7 +361,7 @@ def p_unary_expression(p):
 
 def p_binary_expression(p):
     """
-    assignment : Identifier Assign expression
+    assignment : ArrayCall Assign expression
     logical_or : logical_or Or logical_and
     logical_and : logical_and And bit_or
     bit_or : bit_or BitOr xor
@@ -343,9 +396,9 @@ def p_int_literal_expression(p):
     p[0] = p[1]
 
 
-def p_identifier_expression(p):
+def p_array_call_expression(p):
     """
-    primary : Identifier
+    primary : ArrayCall
     """
     p[0] = p[1]
 

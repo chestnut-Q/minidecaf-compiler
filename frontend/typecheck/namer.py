@@ -42,9 +42,9 @@ class Namer(Visitor[ScopeStack, None]):
 
     def visitParameter(self, param: Parameter, ctx: ScopeStack) -> None:
         if ctx.findConflict(param.ident.value) is None:
-            symbol = VarSymbol(param.ident.value, param.ident.type)
+            symbol = VarSymbol(param.ident.value, param.var_type.type)
             ctx.declare(symbol)
-            param.setattr('symbol', symbol)
+            param.setattr("symbol", symbol)
         else:
             raise DecafDeclConflictError(param.ident.value)
 
@@ -56,7 +56,7 @@ class Namer(Visitor[ScopeStack, None]):
         func_symbol = ctx.globalscope.get(call.ident.value)
         if len(func_symbol.para_type) != len(call.parameters):
             raise DecafBadFuncCallError(call.ident.value)
-        call.setattr('symbol', func_symbol)
+        call.setattr("symbol", func_symbol)
         for param in call.parameters:
             param.accept(self, ctx)
 
@@ -69,7 +69,7 @@ class Namer(Visitor[ScopeStack, None]):
             else:
                 func_symbol.defined = func_symbol.defined or func_defined
         else:
-            func_symbol = FuncSymbol(func.ident.value, func_defined, func.ret_t, Scope(ScopeKind.GLOBAL))
+            func_symbol = FuncSymbol(func.ident.value, func_defined, func.ret_t.type, Scope(ScopeKind.GLOBAL))
             ctx.globalscope.declare(func_symbol)
         ctx.open(Scope(ScopeKind.LOCAL))
         for param in func.parameters:
@@ -158,23 +158,43 @@ class Namer(Visitor[ScopeStack, None]):
                 global_symbol: VarSymbol = ctx.globalscope.get(decl.ident.value)
                 if global_symbol.defined and var_defined:
                     raise DecafGlobalVarDefinedTwiceError(decl.ident.value)
+                else:
+                    return
             else:
-                global_symbol = VarSymbol(decl.ident.value, decl.var_t, True)
+                for size in decl.array_size:
+                    if size <= 0:
+                        raise DecafBadArraySizeError()
+                global_symbol = VarSymbol(decl.ident.value, ArrayType.multidim(decl.var_t.type, *(decl.array_size)), True)
             if decl.init_expr:
                 if not isinstance(decl.init_expr, IntLiteral):
                     raise DecafGlobalVarBadInitValueError(decl.ident.value)
                 global_symbol.setInitValue(decl.init_expr.value)
             else:
-                global_symbol.setInitValue(0)
+                if isinstance(global_symbol.type, ArrayType):
+                    global_symbol.setInitValue(
+                        [x.value for x in decl.array_init] if decl.array_init is not None else None
+                    )
+                else:
+                    global_symbol.setInitValue(0)
             ctx.globalscope.declare(global_symbol)
             decl.setattr("symbol", global_symbol)
         else:
             if ctx.findConflict(decl.ident.value) is None:
-                symbol = VarSymbol(decl.ident.value, decl.ident.type)
+                for size in decl.array_size:
+                    if size <= 0:
+                        raise DecafBadArraySizeError()
+                symbol = VarSymbol(decl.ident.value, ArrayType.multidim(decl.var_t.type, *(decl.array_size)))
                 ctx.declare(symbol)
-                decl.setattr('symbol', symbol)
-                if decl.init_expr is not None:
+                decl.setattr("symbol", symbol)
+                if decl.init_expr:
                     decl.init_expr.accept(self, ctx)
+                else:
+                    if isinstance(symbol.type, ArrayType):
+                        symbol.setInitValue(
+                            [x.value for x in decl.array_init] if decl.array_init is not None else None
+                        )
+                    else:
+                        symbol.setInitValue(0)
             else:
                 raise DecafDeclConflictError(decl.ident.value)
 
@@ -182,8 +202,6 @@ class Namer(Visitor[ScopeStack, None]):
         """
         1. Refer to the implementation of visitBinary.
         """
-        if not isinstance(expr.lhs, Identifier):
-            raise DecafNotLvalueError()
         self.visitBinary(expr, ctx)
 
     def visitUnary(self, expr: Unary, ctx: ScopeStack) -> None:
@@ -210,7 +228,17 @@ class Namer(Visitor[ScopeStack, None]):
         symbol = ctx.lookup(ident.value)
         if symbol is None:
             raise DecafUndefinedVarError(ident.value)
+        ident.type = symbol.type
         ident.setattr("symbol", symbol)
+
+    def visitArrayCall(self, call: ArrayCall, ctx: ScopeStack) -> None:
+        call.array.accept(self, ctx)
+        if call.index:
+            call.type = call.array.type.base
+            call.index.accept(self, ctx)
+        else:
+            call.type = call.array.type
+        call.setattr("symbol", call.array.getattr("symbol"))
 
     def visitIntLiteral(self, expr: IntLiteral, ctx: ScopeStack) -> None:
         value = expr.value

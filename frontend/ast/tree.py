@@ -93,33 +93,6 @@ class Parameter(Node):
         return v.visitParameter(self, ctx)
 
 
-class Call(Node):
-    """
-    AST node that represents calling a function.
-    """
-
-    def __init__(
-        self,
-        ident: Identifier,
-        parameters: list[Parameter],
-    ) -> None:
-        super().__init__("call")
-        self.ident = ident
-        self.parameters = parameters
-
-    def __getitem__(self, key: int) -> Node:
-        return (
-            self.ident,
-            self.parameters,
-        )[key]
-
-    def __len__(self) -> int:
-        return 2
-
-    def accept(self, v: Visitor[T, U], ctx: T):
-        return v.visitCall(self, ctx)
-
-
 class Function(Node):
     """
     AST node that represents a function.
@@ -344,17 +317,21 @@ class Declaration(Node):
         var_t: TypeLiteral,
         ident: Identifier,
         init_expr: Optional[Expression] = None,
+        array_size: Optional[list[IntLiteral]]= None,
+        array_init: Optional[list[IntLiteral]]= None
     ) -> None:
         super().__init__("declaration")
         self.var_t = var_t
         self.ident = ident
         self.init_expr = init_expr or NULL
+        self.array_size = [item.value for item in array_size] if array_size else []
+        self.array_init = array_init
 
     def __getitem__(self, key: int) -> Node:
-        return (self.var_t, self.ident, self.init_expr)[key]
+        return (self.var_t, self.ident, self.init_expr, self.array_size, self.array_init)[key]
 
     def __len__(self) -> int:
-        return 3
+        return 5
 
     def accept(self, v: Visitor[T, U], ctx: T):
         return v.visitDeclaration(self, ctx)
@@ -367,7 +344,34 @@ class Expression(Node):
 
     def __init__(self, name: str) -> None:
         super().__init__(name)
-        self.type: Optional[DecafType] = None
+        self.type: DecafType = INT
+
+
+class Call(Expression):
+    """
+    AST node that represents calling a function.
+    """
+
+    def __init__(
+        self,
+        ident: Identifier,
+        parameters: list[Parameter],
+    ) -> None:
+        super().__init__("call")
+        self.ident = ident
+        self.parameters = parameters
+
+    def __getitem__(self, key: int) -> Node:
+        return (
+            self.ident,
+            self.parameters,
+        )[key]
+
+    def __len__(self) -> int:
+        return 2
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        return v.visitCall(self, ctx)
 
 
 class Unary(Expression):
@@ -496,6 +500,32 @@ class Identifier(Expression):
         return True
 
 
+class ArrayCall(Expression):
+    """
+    AST node of calling an array.
+    """
+
+    def __init__(self, array: Union[ArrayCall, Identifier], index: Optional[Expression] = None) -> None:
+        super().__init__("array_call")
+        self.array = array
+        self.index = index or NULL
+
+    def __getitem__(self, key: int) -> Node:
+        return (self.array, self.index)[key]
+
+    def __len__(self) -> int:
+        return 2
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        return v.visitArrayCall(self, ctx)
+
+    def __str__(self) -> str:
+        return f"{str(self.array)}[{str(self.index)}]" if self.index else str(self.array)
+
+    def is_leaf(self):
+        return True
+
+
 class IntLiteral(Expression):
     """
     AST node of int literal like `0`.
@@ -504,6 +534,7 @@ class IntLiteral(Expression):
     def __init__(self, value: Union[int, str]) -> None:
         super().__init__("int_literal")
         self.value = int(value)
+        self.type = INT
 
     def __getitem__(self, key: int) -> Node:
         raise _index_len_err(key, self)

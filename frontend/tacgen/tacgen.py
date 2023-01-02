@@ -28,7 +28,13 @@ class TACGen(Visitor[FuncVisitor, None]):
 
         for child in program:
             if isinstance(child, Declaration):
-                pw.global_vars.append(Global(child.ident.value, child.getattr("symbol").initValue))
+                if len(child.array_size) > 0:
+                    symbol: VarSymbol = child.getattr("symbol")
+                    pw.global_vars.append(
+                        Global(child.ident.value, child.getattr("symbol").initValue, symbol.type.size)
+                    )
+                else:
+                    pw.global_vars.append(Global(child.ident.value, child.getattr("symbol").initValue))
 
         # The function visitor of 'main' is special.
         mv = pw.visitMainFunc()
@@ -84,9 +90,31 @@ class TACGen(Visitor[FuncVisitor, None]):
         1. Set the 'val' attribute of ident as the temp variable of the 'symbol' attribute of ident.
         """
         symbol: VarSymbol = ident.getattr("symbol")
-        if symbol.isGlobal:
-            symbol.temp = mv.visitLoadWord(mv.visitLoadSymbol(symbol.name), 0)
+        if symbol.type == INT:
+            if symbol.isGlobal:
+                symbol.temp = mv.visitLoadWord(mv.visitLoadSymbol(symbol.name), 0)
+        else:
+            if symbol.isGlobal:
+                symbol.temp = mv.visitLoadSymbol(symbol.name)
         ident.setattr("val", symbol.temp)
+
+    def visitArrayCall(self, call: ArrayCall, mv: FuncVisitor) -> None:
+        call.array.accept(self, mv)
+        if call.index:
+            call.index.accept(self, mv)
+        call.setattr("val", call.array.getattr("val"))
+        if isinstance(call.array.type, ArrayType):
+            if call.index:
+                temp = mv.visitBinary(tacop.BinaryOp.ADD, call.array.getattr("addr"), call.index.getattr("val"))
+                if isinstance(call.type, ArrayType):
+                    mv.visitBinarySelf(tacop.BinaryOp.MUL, temp, mv.visitLoad(call.type.length))
+                else:
+                    mv.visitBinarySelf(tacop.BinaryOp.MUL, temp, mv.visitLoad(4))
+                    mv.visitBinarySelf(tacop.BinaryOp.ADD, temp, call.getattr("val"))
+                    call.setattr("val", mv.visitLoadWord(temp, 0))
+            else:
+                temp = mv.visitLoad(0)
+            call.setattr("addr", temp)
 
     def visitDeclaration(self, decl: Declaration, mv: FuncVisitor) -> None:
         """
@@ -95,8 +123,11 @@ class TACGen(Visitor[FuncVisitor, None]):
         3. If the declaration has an initial value, use mv.visitAssignment to set it.
         """
         symbol = decl.getattr("symbol")
-        symbol.temp = mv.freshTemp()
-        if decl.init_expr is not None:
+        if symbol.type == INT:
+            symbol.temp = mv.freshTemp()
+        else:
+            symbol.temp = mv.visitAlloc(symbol.type.size)
+        if decl.init_expr:
             decl.init_expr.accept(self, mv)
             mv.visitAssignment(symbol.temp, decl.init_expr.getattr("val"))
 
@@ -108,10 +139,13 @@ class TACGen(Visitor[FuncVisitor, None]):
         """
         expr.rhs.accept(self, mv)
         expr.lhs.accept(self, mv)
-        temp = expr.lhs.getattr("val")
-        expr.setattr("val", mv.visitAssignment(temp, expr.rhs.getattr("val")))
-        if isinstance(expr.lhs, Identifier):
-            symbol: VarSymbol = expr.lhs.getattr("symbol")
+        symbol: VarSymbol = expr.lhs.getattr("symbol")
+        if isinstance(symbol.type, ArrayType):
+            mv.visitStoreWord(expr.rhs.getattr("val"), expr.lhs.getattr("addr"), 0)
+            expr.setattr("val", expr.rhs.getattr("val"))
+        else:
+            temp = expr.lhs.getattr("val")
+            expr.setattr("val", mv.visitAssignment(temp, expr.rhs.getattr("val")))
             if symbol.isGlobal:
                 mv.visitStoreWord(temp, mv.visitLoadSymbol(symbol.name), 0)
 

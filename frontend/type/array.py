@@ -61,7 +61,7 @@ class ArrayType(DecafType):
         return f"{self.full_indexed}{self._indexes}"
 
     @classmethod
-    def multidim(cls, base: DecafType, *dims: int) -> ArrayType:
+    def multidim(cls, base: DecafType, *dims: int) -> DecafType:
         "To quickly generate a high-dimension array."
         if dims:
             return cls(cls.multidim(base, *dims[1:]), dims[0])

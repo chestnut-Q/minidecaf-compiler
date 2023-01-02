@@ -41,6 +41,11 @@ class FuncVisitor:
         self.func.add(Assign(dst, src))
         return src
 
+    def visitAlloc(self, size: int) -> Temp:
+        temp = self.freshTemp()
+        self.func.add(Alloc(temp, size))
+        return temp    
+
     def visitLoad(self, value: Union[int, str]) -> Temp:
         temp = self.freshTemp()
         if isinstance(value, int):
