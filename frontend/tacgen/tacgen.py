@@ -122,11 +122,30 @@ class TACGen(Visitor[FuncVisitor, None]):
         2. Use mv.freshTemp to get a new temp variable for this symbol.
         3. If the declaration has an initial value, use mv.visitAssignment to set it.
         """
-        symbol = decl.getattr("symbol")
+        symbol: VarSymbol = decl.getattr("symbol")
         if symbol.type == INT:
             symbol.temp = mv.freshTemp()
         else:
             symbol.temp = mv.visitAlloc(symbol.type.size)
+            if symbol.initValue is not None and not symbol.isGlobal:
+                mv.visitParam(symbol.temp)
+                mv.visitParam(mv.visitLoad(0)  )
+                mv.visitParam(mv.visitLoad(int(symbol.type.size / 4)))
+                mv.visitCall(mv.ctx.getFuncLabel("fill_n"))
+                array_ident: Identifier = Identifier(decl.ident.value)
+                array_symbol: VarSymbol = VarSymbol(decl.ident.value, ArrayType.multidim(decl.var_t.type, *(decl.array_size)), False)
+                array_symbol.temp = symbol.temp
+                array_ident.setattr("symbol", array_symbol)
+                for i in range(len(symbol.initValue)):
+                    array_call: ArrayCall = ArrayCall(ArrayCall(array_ident), IntLiteral(i))
+                    array_call.array.setattr("symbol", array_symbol)
+                    array_call.setattr("symbol", array_symbol)
+                    array_call.array.array.type = ArrayType(ArrayType(INT, 0), 0)
+                    array_call.array.type = ArrayType(INT, 0)
+                    array_call.type = INT
+                    self.visitAssignment(
+                        Assignment(array_call, IntLiteral(symbol.initValue[i])), mv
+                    )
         if decl.init_expr:
             decl.init_expr.accept(self, mv)
             mv.visitAssignment(symbol.temp, decl.init_expr.getattr("val"))

@@ -29,17 +29,14 @@ class Typer(Visitor[None, None]):
         for child in program:
             child.accept(self, ctx)
 
-    def visitParameter(self, param: Parameter, ctx: None) -> None:
-        symbol: VarSymbol = param.getattr("symbol")
-        if symbol.type != INT or param.var_type.type != INT:
-            raise DecafTypeMismatchError()
-
     def visitCall(self, call: Call, ctx: None) -> None:
         func_symbol: FuncSymbol = call.getattr("symbol")
         if func_symbol.type != INT:
             raise DecafTypeMismatchError()
-        for param in call.parameters:
-            param.accept(self, ctx)
+        for i in range(len(call.parameters)):
+            call.parameters[i].accept(self, ctx)
+            if type(func_symbol.getParaType(i)) != type(call.parameters[i].type):
+                raise DecafTypeMismatchError()    
 
     def visitFunction(self, func: Function, ctx: None) -> None:
         func_symbol: FuncSymbol = func.getattr("symbol")
@@ -63,7 +60,7 @@ class Typer(Visitor[None, None]):
     def visitFor(self, stmt: For, ctx: None) -> None:
         stmt.init.accept(self, ctx)
         stmt.ctrl.accept(self, ctx)
-        if stmt.ctrl.type != INT:
+        if stmt.ctrl and stmt.ctrl.type != INT:
             raise DecafTypeMismatchError()
         stmt.post.accept(self, ctx)
         stmt.body.accept(self, ctx)
@@ -89,6 +86,10 @@ class Typer(Visitor[None, None]):
             raise DecafTypeMismatchError()
 
     def visitDeclaration(self, decl: Declaration, ctx: None) -> None:
+        if decl.init_expr:
+            decl.init_expr.accept(self, ctx)
+            if decl.init_expr.type != INT:
+                raise DecafTypeMismatchError()
         symbol: VarSymbol = decl.getattr("symbol")
         if isinstance(symbol.type, ArrayType):
             if isinstance(symbol.initValue, int):
@@ -96,8 +97,6 @@ class Typer(Visitor[None, None]):
         else:
             if symbol.type != INT:
                 raise DecafTypeMismatchError()
-        if decl.init_expr:
-            decl.init_expr.accept(self, ctx)
 
     def visitUnary(self, expr: Unary, ctx: None) -> None:
         expr.operand.accept(self, ctx)

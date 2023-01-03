@@ -28,9 +28,9 @@ class ArrayType(DecafType):
     @property
     def _indexes(self) -> str:
         if isinstance(self.base, ArrayType):
-            return f"[{self.length}]{self.base._indexes}"
+            return f"[{self.length or ''}]{self.base._indexes}"
         else:
-            return f"[{self.length}]"
+            return f"[{self.length or ''}]"
 
     @property
     def size(self) -> int:

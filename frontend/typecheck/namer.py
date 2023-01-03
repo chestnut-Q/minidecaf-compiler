@@ -40,6 +40,12 @@ class Namer(Visitor[ScopeStack, None]):
         for child in program:
             child.accept(self, ctx)
 
+        func_symbol = FuncSymbol("fill_n", False, INT, Scope(ScopeKind.GLOBAL))
+        func_symbol.addParaType(ArrayType(INT, 0))
+        func_symbol.addParaType(INT)
+        func_symbol.addParaType(INT)
+        ctx.globalscope.declare(func_symbol)
+
     def visitParameter(self, param: Parameter, ctx: ScopeStack) -> None:
         if ctx.findConflict(param.ident.value) is None:
             symbol = VarSymbol(param.ident.value, param.var_type.type)
@@ -74,7 +80,7 @@ class Namer(Visitor[ScopeStack, None]):
         ctx.open(Scope(ScopeKind.LOCAL))
         for param in func.parameters:
             param.accept(self, ctx)
-            func_symbol.addParaType(param.var_type)
+            func_symbol.addParaType(param.var_type.type)
         if func.body:
             for child in func.body:
                 child.accept(self, ctx)
@@ -191,7 +197,7 @@ class Namer(Visitor[ScopeStack, None]):
                 else:
                     if isinstance(symbol.type, ArrayType):
                         symbol.setInitValue(
-                            [x.value for x in decl.array_init] if decl.array_init is not None else None
+                            [x.value for x in decl.array_init] if decl.array_init is not NULL else None
                         )
                     else:
                         symbol.setInitValue(0)

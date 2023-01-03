@@ -20,6 +20,8 @@ class ProgramWriter:
         for func in funcs.values():
             self.funcs.append(func.ident.value)
             self.ctx.putFuncLabel(func.ident.value, len(func.parameters))
+        self.funcs.append("fill_n")
+        self.ctx.putFuncLabel("fill_n", 3)
 
     def visitMainFunc(self) -> FuncVisitor:
         entry = MAIN_LABEL

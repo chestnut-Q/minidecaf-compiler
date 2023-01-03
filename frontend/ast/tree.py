@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Generic, Optional, TypeVar, Union
 
-from frontend.type import INT, DecafType
+from frontend.type import INT, DecafType, ArrayType
 from utils import T, U
 
 from .node import NULL, BinaryOp, Node, UnaryOp
@@ -75,10 +75,14 @@ class Parameter(Node):
         self,
         var_type: TypeLiteral,
         ident: Identifier,
+        is_array: bool = False
     ) -> None:
         super().__init__("parameter")
         self.var_type = var_type
         self.ident = ident
+        self.is_array = is_array
+        if self.is_array:
+            self.var_type = TIntArray()
 
     def __getitem__(self, key: int) -> Node:
         return (
@@ -325,7 +329,7 @@ class Declaration(Node):
         self.ident = ident
         self.init_expr = init_expr or NULL
         self.array_size = [item.value for item in array_size] if array_size else []
-        self.array_init = array_init
+        self.array_init = array_init or NULL
 
     def __getitem__(self, key: int) -> Node:
         return (self.var_t, self.ident, self.init_expr, self.array_size, self.array_init)[key]
@@ -436,7 +440,7 @@ class Assignment(Binary):
     It's actually a kind of binary expression, but it'll make things easier if we use another accept method to handle it.
     """
 
-    def __init__(self, lhs: Identifier, rhs: Expression) -> None:
+    def __init__(self, lhs: ArrayCall, rhs: Expression) -> None:
         super().__init__(BinaryOp.Assign, lhs, rhs)
 
     def accept(self, v: Visitor[T, U], ctx: T):
@@ -582,3 +586,18 @@ class TInt(TypeLiteral):
 
     def accept(self, v: Visitor[T, U], ctx: T):
         return v.visitTInt(self, ctx)
+
+class TIntArray(TypeLiteral):
+    "AST node of type `int_array`."
+
+    def __init__(self) -> None:
+        super().__init__("type_int_array", ArrayType(INT, 0))
+
+    def __getitem__(self, key: int) -> Node:
+        raise _index_len_err(key, self)
+
+    def __len__(self) -> int:
+        return 0
+
+    def accept(self, v: Visitor[T, U], ctx: T):
+        return v.visitTIntArray(self, ctx)

@@ -102,10 +102,6 @@ class RiscvAsmEmitter(AsmEmitter):
         def visitMark(self, instr: Mark) -> None:
             self.seq.append(Riscv.RiscvLabel(instr.label))
 
-        def visitAlloc(self, instr: Alloc) -> None:
-            self.seq.append(Riscv.GetArrayAddr(instr.dst, self.array_offset))
-            self.array_offset += instr.size
-
         def visitLoadImm4(self, instr: LoadImm4) -> None:
             self.seq.append(Riscv.LoadImm(instr.dst, instr.value))
 
@@ -164,6 +160,9 @@ class RiscvAsmEmitter(AsmEmitter):
             self.passed_params.clear()
 
         # in step11, you need to think about how to store the array 
+        def visitAlloc(self, instr: Alloc) -> None:
+            self.seq.append(Riscv.GetArrayAddr(instr.dst, self.array_offset))
+            self.array_offset += instr.size
 """
 RiscvAsmEmitter: an SubroutineEmitter for RiscV
 """

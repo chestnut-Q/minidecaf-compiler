@@ -78,7 +78,21 @@ def p_parameter(p):
     '''
     parameter : type Identifier
     '''
-    p[0] = Parameter(p[1], p[2])
+    p[0] = Parameter(p[1], p[2], False)
+
+
+def p_parameter_array(p):
+    '''
+    parameter : type Identifier LBracket Integer RBracket
+    '''
+    p[0] = Parameter(p[1], p[2], True)
+
+
+def p_parameter_array_noint(p):
+    '''
+    parameter : type Identifier LBracket RBracket
+    '''
+    p[0] = Parameter(p[1], p[2], True)
 
 
 def p_parameter_list(p):
